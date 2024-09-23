@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CubicBezier</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="default.js"></script>
+</head>
+
+<body>
+    <div id="wrapper_canvas">
+        <div id="wrapper_easingCanvas"></div>
+        <div id="wrapper_easingTxt">
+            <span style="color:#B3F2BD">Cubic-Bezier</span> (<div><input id="input_easing" />
+                <div></div>
+            </div>)
+        </div>
+
+    </div>
+</body>
+
+</html>
+<script>
+    const ec = new EasingCanvas(document.querySelector("#wrapper_easingCanvas"));
+
+    var renderTxt = function (value) {
+        value = value.replace(/ /gi, '').split(',');
+        document.querySelector('#wrapper_easingTxt>div>div').innerHTML = `<span style="color:#D9B29C">${value[0] || ''}</span>,<span style="color:#D9B29C">${value[1] || ''}</span>,<span style="color:skyblue">${value[2] || ''}</span>,<span style="color:skyblue">${value[3] || ''}</span>`;
+    }
+    window.addEventListener('resize', function () {
+        ec.render();
+    })
+    ec.eventListener.render.push(function (e) {
+        document.getElementById('input_easing').value = `${(Math.floor(e.x1 * 1000) * 0.001).toFixed(3)},${(Math.floor(e.y1 * 1000) * 0.001).toFixed(3)},${(Math.floor(e.x2 * 1000) * 0.001).toFixed(3)},${(Math.floor(e.y2 * 1000) * 0.001).toFixed(3)}`;
+        renderTxt(document.getElementById('input_easing').value);
+    })
+    document.getElementById('input_easing').addEventListener('keydown', function (e) {
+        if (e.keyCode === 13) {
+            var value = this.value.replace(/ /gi, '').split(',');
+            ec.set(value[0], value[1], value[2], value[3]);
+        }
+    });
+    document.getElementById('input_easing').addEventListener('keydown', function (e) {
+        renderTxt(this.value);
+    });
+    document.getElementById('input_easing').addEventListener('keyup', function (e) {
+        renderTxt(this.value);
+    });
+    document.getElementById('input_easing').addEventListener('keypress', function (e) {
+        renderTxt(this.value);
+    });
+
+    ec.render();
+
+</script>
