@@ -1,16 +1,21 @@
-class EasingCanvas {
+export default class EasingCanvas {
     namespace = 'http://www.w3.org/2000/svg';
-    dragging = undefined;
-    snapping = false;
-    snappingSnap = 0.05;
-    fix = false;
-    fixX = false;
-    fixY = false;
-    fixDistance = 10;
+    dragging = false;
+    snap = {
+        lock: false,
+        status: false,
+        size: 0.05
+    }
+    axisLock = {
+        lock: false,
+        status: false,
+        threshold: 10,
+        _x: false,
+        _y: false
+    }
     dom = {
         wrapper: null,
-        guide_top_path: document.createElementNS(this.namespace, 'path'),
-        guide_bottom_path: document.createElementNS(this.namespace, 'path'),
+        guide_rect: document.createElementNS(this.namespace, 'rect'),
         svg: document.createElementNS(this.namespace, 'svg'),
         path: document.createElementNS(this.namespace, 'path'),
         pre_path: document.createElementNS(this.namespace, 'path'),
@@ -23,7 +28,7 @@ class EasingCanvas {
         helper_guides: []
     }
     style = {
-        margin: 60
+        margin: 0
     }
     eventListener = {
         render: []
@@ -43,7 +48,7 @@ class EasingCanvas {
     constructor(dom) {
         this.dom.wrapper = dom;
 
-        var guidesCnt = (1 / this.snappingSnap) * 2;
+        var guidesCnt = (1 / this.snap.size) * 2;
         for (var i = 0; i < guidesCnt; i++) {
             var guidePath = document.createElementNS(this.namespace, 'path');
             guidePath.setAttribute('stroke', '#888');
@@ -53,12 +58,9 @@ class EasingCanvas {
         }
         this.dom.wrapper.appendChild(this.dom.svg);
 
-        this.dom.guide_top_path.setAttribute('stroke', '#888888');
-        this.dom.guide_top_path.setAttribute('stroke-dasharray', '10,5');
-        this.dom.guide_bottom_path.setAttribute('stroke', '#888888');
-        this.dom.guide_bottom_path.setAttribute('stroke-dasharray', '10,5');
+        this.dom.guide_rect.setAttribute('stroke', '#888888');
 
-        this.dom.svg.append(this.dom.guide_top_path, this.dom.guide_bottom_path, this.dom.pre_path, this.dom.path, this.dom.helper1_path, this.dom.helper2_path, this.dom.helper1_circle, this.dom.helper2_circle);
+        this.dom.svg.append(this.dom.guide_rect, this.dom.pre_path, this.dom.path, this.dom.helper1_path, this.dom.helper2_path, this.dom.helper1_circle, this.dom.helper2_circle);
         this.dom.path.setAttribute('stroke', '#B3F2BD');
         this.dom.path.setAttribute('stroke-width', '5');
         this.dom.path.setAttribute('fill', 'none');
@@ -86,7 +88,7 @@ class EasingCanvas {
         this.dom.helper2_circle.style.cursor = 'pointer';
 
 
-        this.dom.wrapper.addEventListener('mousedown', (e) => {
+        document.body.addEventListener('mousedown', (e) => {
             e.preventDefault();
             if (e.target.id == 'helper_1') {
                 this.dragging = 'helper_1';
@@ -96,76 +98,79 @@ class EasingCanvas {
             this.dist.status = true;
             this.dist.init = [e.clientX, e.clientY];
             this.dist.diff = [0, 0];
-            this.fixX = false
-            this.fixY = false
+
+            this.axisLock._x = false
+            this.axisLock._y = false
             this.render();
         })
-        this.dom.wrapper.addEventListener('mousemove', (e) => {
+        document.body.addEventListener('mousemove', (e) => {
             e.preventDefault();
+            if (!this.dragging) return;
             this.dist.diff = [e.clientX - this.dist.init[0], e.clientY - this.dist.init[1]];
-            if (this.dist.status && this.fix) {
-                if (Math.abs(this.dist.diff[0]) > this.fixDistance && !this.fixY) {
-                    this.fixX = true
+            if (this.dist.status && this.axisLock.status) {
+                if (Math.abs(this.dist.diff[0]) > this.axisLock.threshold && !this.axisLock._y) {
+                    this.axisLock._x = true
                 }
-                if (Math.abs(this.dist.diff[1]) > this.fixDistance && !this.fixX) {
-                    this.fixY = true;
+                if (Math.abs(this.dist.diff[1]) > this.axisLock.threshold && !this.axisLock._x) {
+                    this.axisLock._y = true;
                 }
-                console.log(this.fixX, this.fixY)
             }
             if (this.dragging == 'helper_1') {
                 var x1 = ((e.clientX - (this.dom.svg.getBoundingClientRect().x + this.style.margin)) / this.width);
                 var y1 = (1 - (e.clientY - (this.dom.svg.getBoundingClientRect().y + this.style.margin)) / this.height);
-                if (this.snapping) {
-                    x1 = Math.round(x1 / this.snappingSnap) * this.snappingSnap;
-                    y1 = Math.round(y1 / this.snappingSnap) * this.snappingSnap;
+                if (this.snap.status) {
+                    x1 = Math.round(x1 / this.snap.size) * this.snap.size;
+                    y1 = Math.round(y1 / this.snap.size) * this.snap.size;
                 }
-                if ((!this.fix) || (this.fix && this.fixX)) this.path.x1 = x1
-                if ((!this.fix) || (this.fix && this.fixY)) this.path.y1 = y1
+                if ((!this.axisLock.status) || (this.axisLock.status && this.axisLock._x)) this.path.x1 = x1
+                if ((!this.axisLock.status) || (this.axisLock.status && this.axisLock._y)) this.path.y1 = y1
 
                 this.render();
             } else if (this.dragging == 'helper_2') {
                 var x2 = ((e.clientX - (this.dom.svg.getBoundingClientRect().x + this.style.margin)) / (this.width));
                 var y2 = (1 - (e.clientY - (this.dom.svg.getBoundingClientRect().y + + this.style.margin)) / this.height);
 
-                if (this.snapping) {
-                    x2 = Math.round(x2 / this.snappingSnap) * this.snappingSnap;
-                    y2 = Math.round(y2 / this.snappingSnap) * this.snappingSnap;
+                if (this.snap.status) {
+                    x2 = Math.round(x2 / this.snap.size) * this.snap.size;
+                    y2 = Math.round(y2 / this.snap.size) * this.snap.size;
                 }
-                if ((!this.fix) || (this.fix && this.fixX)) this.path.x2 = x2;
-                if ((!this.fix) || (this.fix && this.fixY)) this.path.y2 = y2;
+                if ((!this.axisLock.status) || (this.axisLock.status && this.axisLock._x)) this.path.x2 = x2;
+                if ((!this.axisLock.status) || (this.axisLock.status && this.axisLock._y)) this.path.y2 = y2;
                 this.render();
             }
         })
-        this.dom.wrapper.addEventListener('mouseup', (e) => {
+        document.body.addEventListener('mouseup', (e) => {
             e.preventDefault();
+            if (!this.dragging) return;
             this.dragging = undefined;
             this.dist.status = false;
-            this.fixX = false
-            this.fixY = false
+            this.axisLock._x = false
+            this.axisLock._y = false
             this.render();
         })
-        this.dom.wrapper.addEventListener('mouseleave', (e) => {
+        document.body.addEventListener('mouseleave', (e) => {
             e.preventDefault();
+            if (!this.dragging) return;
             this.dragging = undefined;
             this.dist.status = false;
-            this.fixX = false
-            this.fixY = false
+            this.axisLock._x = false
+            this.axisLock._y = false
             this.render();
         })
         document.body.addEventListener('keydown', (e) => {
             if (e.key == 'Control' || e.key == 'Meta') {
-                this.snapping = true;
+                this.snap.status = true;
             }
             if (e.key == 'Shift') {
-                this.fix = true;
+                this.axisLock.status = true;
             }
         })
         document.body.addEventListener('keyup', (e) => {
             if (e.key == 'Control' || e.key == 'Meta') {
-                this.snapping = false;
+                this.snap.status = false;
             }
             if (e.key == 'Shift') {
-                this.fix = false;
+                this.axisLock.status = false;
             }
         })
         this.render();
@@ -182,30 +187,33 @@ class EasingCanvas {
     }
     render() {
         this.dom.path.setAttribute('d', `M ${this.style.margin}, ${this.style.margin + this.height} C 
-  ${this.style.margin + this.width * this.path.x1}, ${this.style.margin + this.height - this.height * this.path.y1}
-  ${this.style.margin + this.width * this.path.x2}, ${this.style.margin + this.height - this.height * this.path.y2}
-  ${this.style.margin + this.width}, ${this.style.margin}`);
+      ${this.style.margin + this.width * this.path.x1}, ${this.style.margin + this.height - this.height * this.path.y1}
+      ${this.style.margin + this.width * this.path.x2}, ${this.style.margin + this.height - this.height * this.path.y2}
+      ${this.style.margin + this.width}, ${this.style.margin}`);
         this.dom.pre_path.setAttribute('d', `M ${this.style.margin}, ${this.style.margin + this.height} C 
-  ${this.style.margin + this.width * this.path.x1}, ${this.style.margin + this.height - this.height * this.path.y1}
-  ${this.style.margin + this.width * this.path.x2}, ${this.style.margin + this.height - this.height * this.path.y2}
-  ${this.style.margin + this.width}, ${this.style.margin}`);
-        this.dom.helper1_circle.setAttribute('cx', `${this.style.margin + this.width * this.path.x1}`)
-        this.dom.helper1_circle.setAttribute('cy', `${this.style.margin + this.height - this.height * this.path.y1}`)
-        this.dom.helper2_circle.setAttribute('cx', `${this.style.margin + this.width * this.path.x2}`)
-        this.dom.helper2_circle.setAttribute('cy', `${this.style.margin + this.height - this.height * this.path.y2}`)
+      ${this.style.margin + this.width * this.path.x1}, ${this.style.margin + this.height - this.height * this.path.y1}
+      ${this.style.margin + this.width * this.path.x2}, ${this.style.margin + this.height - this.height * this.path.y2}
+      ${this.style.margin + this.width}, ${this.style.margin}`);
+        this.dom.helper1_circle.setAttribute('cx', `${this.style.margin + this.width * this.path.x1}`);
+        this.dom.helper1_circle.setAttribute('cy', `${this.style.margin + this.height - this.height * this.path.y1}`);
+        this.dom.helper2_circle.setAttribute('cx', `${this.style.margin + this.width * this.path.x2}`);
+        this.dom.helper2_circle.setAttribute('cy', `${this.style.margin + this.height - this.height * this.path.y2}`);
         this.dom.helper1_path.setAttribute('d', `M ${this.style.margin}, ${this.style.margin + this.height} 
-  ${this.style.margin + this.width * this.path.x1}, ${this.style.margin + this.height - this.height * this.path.y1}`);
+      ${this.style.margin + this.width * this.path.x1}, ${this.style.margin + this.height - this.height * this.path.y1}`);
         this.dom.helper2_path.setAttribute('d', `M ${this.style.margin + this.width}, ${this.style.margin}
-  ${this.style.margin + this.width * this.path.x2}, ${this.style.margin + this.height - this.height * this.path.y2}`);
-        this.dom.guide_top_path.setAttribute('d', `M ${this.style.margin}, ${this.style.margin} ${this.style.margin + this.width}, ${this.style.margin}`);
-        this.dom.guide_bottom_path.setAttribute('d', `M ${this.style.margin}, ${this.style.margin + this.height} ${this.style.margin + this.width}, ${this.style.margin + this.height}`);
+      ${this.style.margin + this.width * this.path.x2}, ${this.style.margin + this.height - this.height * this.path.y2}`);
+        this.dom.guide_rect.setAttribute('x', `${this.style.margin}`);
+        this.dom.guide_rect.setAttribute('y', `${this.style.margin}`);
+        this.dom.guide_rect.setAttribute('width', `${this.width}`);
+        this.dom.guide_rect.setAttribute('height', `${this.height}`);
+        this.dom.guide_rect.setAttribute('fill', `none`);
 
         var guidesCnt = this.dom.helper_guides.length;
-        for (var i = 0; i < guidesCnt / 2; i++) {
-            this.dom.helper_guides[i].setAttribute('d', `M ${this.style.margin + (this.width / guidesCnt * 2 * (i + 1))}, ${this.style.margin} ${this.style.margin + (this.width / guidesCnt * 2 * (i + 1))}, ${this.style.margin + this.height}`);
+        for (var i = 0; i < guidesCnt / 2 + 1; i++) {
+            this.dom.helper_guides[i].setAttribute('d', `M ${this.style.margin + (this.width / guidesCnt * 2 * (i))}, ${this.style.margin} ${this.style.margin + (this.width / guidesCnt * 2 * (i))}, ${this.style.margin + this.height}`);
         }
-        for (var i = guidesCnt / 2; i < guidesCnt; i++) {
-            this.dom.helper_guides[i].setAttribute('d', `M ${this.style.margin}, ${this.style.margin + (this.height / guidesCnt * 2 * (i + 1)) - this.height} ${this.style.margin + this.width}, ${this.style.margin + (this.height / guidesCnt * 2 * (i + 1) - this.height)}`);
+        for (var i = guidesCnt / 2 + 1; i < guidesCnt; i++) {
+            this.dom.helper_guides[i].setAttribute('d', `M ${this.style.margin}, ${this.style.margin + (this.height / guidesCnt * 2 * (i)) - this.height} ${this.style.margin + this.width}, ${this.style.margin + (this.height / guidesCnt * 2 * (i) - this.height)}`);
         }
         for (var i in this.eventListener.render) {
             this.eventListener.render[i](this.path);
